@@ -52,7 +52,7 @@ public:
     uint16_t State;
     uint16_t State2;
     uint16_t Trail;
-    uint16_t Rate;
+    uint16_t Count;
     uint16_t Target;
     uint16_t CurrentStep;
     uint8_t Bounce;
@@ -315,11 +315,34 @@ public:
     void GaugeConfig(uint32_t color)
     {
         if (debugMode == 1) {Serial.println("GaugeConfig() detected"); delay(2000);}
+        ActivePattern = GAUGE;
+        Color1 = color;
+        Interval = 20;
+        Index = 0;
+        Count = 0;
     }
         //Update Gauge effect
     void GaugeUpdate()
     {
         if (debugMode == 1) {Serial.println("GaugeUpdate() detected"); delay(2000);}
+        if ( Count > 3) {effectReset(); Count = 0;}
+        if (State != 0)
+        {
+            unsigned long ControlState = (State * numPixels()) / 100;
+            if (Index <= ControlState)
+            {
+                setPixelColor(Index, Color1);
+                show();
+                Index++;
+            }
+            else if (Index > ControlState)
+            {
+                setPixelColor(Index, 0,0,0);
+                show();
+                Index--;
+            }
+        }
+        
     }
         //Update front shield gauge
         //will need to check logic for when one is up and the other down
@@ -394,6 +417,7 @@ void setup()
     engines.ImpulseConfig(engines.Color(200,100,0), 0);
     engines.WarpChaseConfig(engines.Color(180,0,200), 10);
     redalert.FadeConfig(redalert.Color(200,0,0), redalert.Color(0,0,0), 150, 15);
+    energy.GaugeConfig(energy.Color(0,180,40));
 }
 
 
@@ -420,6 +444,9 @@ void loop()
         shields.State2 = packetBuffer[22];  //Rear shields level: 0-100
         redalert.State = packetBuffer[23];  //Red alert state: 0-1
         environment.State = packetBuffer[24];   //environment state: ??
+        
+        //Stabilize Energy Gauge
+        if (energy.State == 0) { energy.Count++; }
         
         for (int i = 18; i < 30; i++)
         {
