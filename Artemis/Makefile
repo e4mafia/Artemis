@@ -13,7 +13,7 @@
 # Libraries
 # ----------------------------------
 # Declare application Arduino/chipKIT/Digispark/Energia/Maple/Microduino/Teensy/Wiring
-# and user's libraries used 
+# and user's libraries used
 # Short-listing libraries speeds-up building
 # Typing = 0 takes none (default for application and user)
 # Otherwise, leaving empty considers all (default for local)
@@ -22,13 +22,36 @@
 # !!! Help: http://bit.ly/2hYLBDC
 # default = 0 = none
 #
-APP_LIBS_LIST = 0
+# ARDUINO : AVR = EEPROM HID SPI SoftwareSerial Wire
+# ARDUINO : common = Bridge Esplora Ethernet Firmata GSM
+#    LiquidCrystal RobotIRremote Robot_Control Robot_Motor SD Servo
+#    SpacebrewYun Stepper TFT Temboo WiFi
+#
+# ARDUINO : AVR = EEPROM HID SPI SoftwareSerial Wire
+# ARDUINO : common = Bridge Esplora Ethernet Firmata GSM
+#    LiquidCrystal RobotIRremote Robot_Control Robot_Motor SD Servo
+#    SpacebrewYun Stepper TFT Temboo WiFi
+#
+# ARDUINO : AVR = EEPROM HID SPI SoftwareSerial Wire 
+# ARDUINO : common = Bridge Esplora Ethernet Firmata GSM 
+#	LiquidCrystal RobotIRremote Robot_Control Robot_Motor SD Servo 
+#	SpacebrewYun Stepper TFT Temboo WiFi 
+#
+APP_LIBS_LIST = Ethernet EthernetUdp SPI EEPROM
 
 # List user's libraries here
 # !!! Help: http://bit.ly/2AEscDx
 # default = 0 = none
 #
-USER_LIBS_LIST = 0
+#USER =
+#
+# USER = Adafruit_NeoPixel DMXSerial DMXSerial2
+#    FastLED-master
+#
+# USER = Adafruit_NeoPixel DMXSerial DMXSerial2 
+#	FastLED-master 
+#
+USER_LIBS_LIST = Adafruit_NeoPixel
 
 # List core, application and user's libraries to be excluded
 # !!! Help: http://bit.ly/2AijUOI
@@ -46,13 +69,13 @@ USER_LIBS_LIST = 0
 # BOARD_TAG is required
 # If not defined, error BOARD_TAG not defined
 #
-#BOARD_TAG  = mega2560
+BOARD_TAG  = mega2560
 
 # BOARD_PORT is optional
 # !!! Help: http://bit.ly/2yUvq0h
 # If not defined, BOARD_PORT = /dev/tty.usb* (default)
 #
-#BOARD_PORT = /dev/tty.usbmodem*
+BOARD_PORT = /dev/cu.usb*
 
 # Xcode takes SKETCHBOOK_DIR from preferences.txt
 # If not defined, each IDE has its own SKETCHBOOK_DIR (default)
@@ -64,7 +87,7 @@ USER_LIBS_LIST = 0
 # !!! Help: http://bit.ly/2AUEcgp
 # Uncomment and specify another speed
 #
-#SERIAL_BAUDRATE = 115200
+SERIAL_BAUDRATE = 115200
 
 
 
@@ -82,10 +105,14 @@ CURRENT_DIR   := $(shell echo '$(CURRENT_DIR)' | sed 's/ /\\\ /g')
 
 # C-compliant project name and extension
 #
-PROJECT_NAME_AS_IDENTIFIER = Artemis
+PROJECT_NAME_AS_IDENTIFIER = Artemis_Mega
 SKETCH_EXTENSION = ino
 
 MAKEFILE_PATH  = $(CURRENT_DIR)/Makefiles
 UTILITIES_PATH = $(CURRENT_DIR)/Utilities
 
 include $(MAKEFILE_PATH)/Step1.mk
+
+
+
+
