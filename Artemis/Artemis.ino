@@ -217,16 +217,58 @@ public:
     }
     
         //WarpChase setup
-    void WarpChaseConfig(uint32_t color,int len)
+    void WarpChaseConfig(uint32_t color2, int len, direction dir = FORWARD)
     {
-        
+        if (debugMode == 1) {Serial.println("WarpChaseConfig() detected"); delay(2000);}
+        ActivePattern = WARPCHASE;
+        TotalSteps = numPixels();
+        Trail = len;
+        Color2 = color2;
+        Index = 0;
+        Direction = dir;
     }
     
         // Update the warpChase pattern
     void WarpChaseUpdate()
     {
-        
-    }
+        if (debugMode == 1) {Serial.println("WarpChaseUpdate() detected"); delay(2000);}
+        if (State2 != 0)
+        {
+            switch (State2)
+            {
+                case 25:
+                    Interval = 25;
+                    break;
+                case 50:
+                    Interval = 20;
+                    break;
+                case 75:
+                    Interval = 13;
+                    break;
+                case 100:
+                    Interval = 7;
+                    break;
+                default:
+                    break;
+            }
+            
+                    //Trail = (25 * State2) / 100;
+                    
+                    if (Index+Trail>numPixels())
+                    {
+                        setPixelColor(Index + Trail - numPixels(),Color2);
+                    }
+                    setPixelColor(Index + Trail, Color2);
+                    setPixelColor(Index-1, 0,0,0);
+                    show();
+                    Increment();
+                }
+                    else
+                    {
+                        effectReset();
+                        ImpulseConfig(Color1, 0);
+                    }
+            }
     
         // Initialize for Impulse power
     void ImpulseConfig(uint32_t color1, uint8_t interval)
@@ -265,7 +307,7 @@ public:
         else
         {
             effectReset();
-            ImpulseConfig(Color1, 0);
+            WarpChaseConfig(Color2, 10);
         }
         
     }
@@ -349,8 +391,8 @@ void setup()
     environment.begin();
     
         //Initial config of effect objects
-    engines.ImpulseConfig(engines.Color(200,100,0), 10);
-        // engines.WarpChaseConfig(engines.Color(180,0,200), 15);
+    engines.ImpulseConfig(engines.Color(200,100,0), 0);
+    engines.WarpChaseConfig(engines.Color(180,0,200), 10);
     redalert.FadeConfig(redalert.Color(200,0,0), redalert.Color(0,0,0), 150, 15);
 }
 
