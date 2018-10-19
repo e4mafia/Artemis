@@ -27,8 +27,9 @@
 
     // Set parameters
 int debugMode = 0;
-enum  pattern { NONE, IMPULSE, FADE, WARPCHASE, GAUGE, SHIELDS };
+enum  pattern { NONE, IMPULSE, FADE, WARPCHASE, GAUGE, SHIELDS, ENVIRONMENT };
 enum  direction { FORWARD, REVERSE };
+enum enviro { NEBULA, DOCKED, HIT, SHIELDHIT, RUN };
     // Include application, user and local libraries
 #include "Adafruit_NeoPixel.h"
 #include <Adafruit_NeoPixel.h>
@@ -42,6 +43,7 @@ public:
         // Member Variables:
     pattern  ActivePattern;  // which pattern is running
     direction Direction;     // direction to run the pattern
+    enviro Environment;
     
     unsigned long Interval;   // milliseconds between updates
     unsigned long lastUpdate; // last update of position
@@ -91,6 +93,8 @@ public:
                     FrontShieldUpdate();
                     RearShieldUpdate();
                     break;
+                case ENVIRONMENT:
+                    EnvironmentUpdate();
                 default:
                     break;
             }
@@ -147,7 +151,7 @@ public:
     }
     
         // Initialize for a Fade
-    void FadeConfig(uint32_t color1, uint32_t color2, uint16_t steps, uint8_t interval, direction dir = FORWARD)
+    void FadeConfig(uint32_t color1, uint32_t color2, uint16_t steps, uint8_t interval, int bounce, direction dir = FORWARD)
     {
         if (debugMode == 1) {Serial.println("FadeConfig() detected");delay(1000);}
         ActivePattern = FADE;
@@ -157,7 +161,7 @@ public:
         Color2 = color2;
         Index = 0;
         Direction = dir;
-        Bounce = 1;
+        Bounce = bounce;
         
     }
     
@@ -166,17 +170,26 @@ public:
     {
         if (debugMode == 1) {Serial.println("FadeUpdate() detected");
             Serial.print((String)"Index = " + Index); delay(1000);}
-            // Calculate linear interpolation between Color1 and Color2
-            // Optimise order of operations to minimize truncation error
-        uint8_t red = ((Red(Color1) * (TotalSteps - Index)) + (Red(Color2) * Index)) / TotalSteps;
-        uint8_t green = ((Green(Color1) * (TotalSteps - Index)) + (Green(Color2) * Index)) / TotalSteps;
-        uint8_t blue = ((Blue(Color1) * (TotalSteps - Index)) + (Blue(Color2) * Index)) / TotalSteps;
-        
-        ColorSet(Color(red, green, blue));
-        show();
-        StartIndex = Index;
-        Increment();
+        if (State != 0)
+        {
+                // Calculate linear interpolation between Color1 and Color2
+                // Optimise order of operations to minimize truncation error
+            uint8_t red = ((Red(Color1) * (TotalSteps - Index)) + (Red(Color2) * Index)) / TotalSteps;
+            uint8_t green = ((Green(Color1) * (TotalSteps - Index)) + (Green(Color2) * Index)) / TotalSteps;
+            uint8_t blue = ((Blue(Color1) * (TotalSteps - Index)) + (Blue(Color2) * Index)) / TotalSteps;
+            
+            ColorSet(Color(red, green, blue));
+            show();
+            StartIndex = Index;
+            Increment();
+        }
+        else
+        {
+            effectReset();
+            Index = 0;
+        }
     }
+    
     
         // Calculate a dimmed version of a color (used by ImpulseUpdate())
     uint32_t DimColor(uint32_t color)
@@ -362,6 +375,71 @@ public:
         ColorSet(Color(0,0,0));
         show();
     }
+    
+        // Initialize for a Fade
+    void EnvironmentConfig(uint32_t color1, uint32_t color2, uint16_t steps, uint8_t interval, int bounce, direction dir = FORWARD)
+    {
+        if (debugMode == 1) {Serial.println("FadeConfig() detected");delay(1000);}
+        ActivePattern = ENVIRONMENT;
+        Interval = interval;
+        TotalSteps = steps;
+        Color1 = color1;
+        Color2 = color2;
+        Index = 0;
+        Direction = dir;
+        Bounce = bounce;
+        
+    }
+    
+        // Update the Fade Pattern
+    void EnvironmentUpdate()
+    {
+        if (debugMode == 3) {Serial.println("EnvironmentUpdate() detected");
+            Serial.println((String)"Index = " + Index + "   State = " + State + "  State2 = " + State2); delay(1000);}
+        if (State != 0 && State != State2)
+        {
+                switch (State)
+                {
+                    case 1:     //Within Nebula
+                        EnvironmentConfig(Color(0,25,0), Color(50,0,150), 75, 5, 1);
+                        break;
+                    case 2:     //Completely Docked
+                        EnvironmentConfig(Color(180,180,0), Color(80,0,0), 100, 20, 1);
+                        break;
+                    case 3:
+                        EnvironmentConfig(Color(180,180,0), Color(180,180,0), 1, 100, 0);
+                        break;
+                    case 4:
+                        EnvironmentConfig(Color(0,0,200), Color(0,0,100), 5, 5, 0);
+                        break;
+                    case 5:
+                        EnvironmentConfig(Color(255,0,0), Color(255,140,0), 5, 5, 0);
+                        break;
+                    default:
+                        break;
+                }
+        }
+        if (State != 0)
+        {
+            
+                // Calculate linear interpolation between Color1 and Color2
+                // Optimise order of operations to minimize truncation error
+            uint8_t red = ((Red(Color1) * (TotalSteps - Index)) + (Red(Color2) * Index)) / TotalSteps;
+            uint8_t green = ((Green(Color1) * (TotalSteps - Index)) + (Green(Color2) * Index)) / TotalSteps;
+            uint8_t blue = ((Blue(Color1) * (TotalSteps - Index)) + (Blue(Color2) * Index)) / TotalSteps;
+            
+            ColorSet(Color(red, green, blue));
+            show();
+            //StartIndex = Index;
+            Increment();
+            State2 = State;
+        }
+        else
+        {
+            effectReset();
+            Index = 0;
+        }
+    }
 };
 
     // Define variables and constants
@@ -416,8 +494,10 @@ void setup()
         //Initial config of effect objects
     engines.ImpulseConfig(engines.Color(200,100,0), 0);
     engines.WarpChaseConfig(engines.Color(180,0,200), 10);
-    redalert.FadeConfig(redalert.Color(200,0,0), redalert.Color(0,0,0), 150, 15);
+    redalert.FadeConfig(redalert.Color(200,0,0), redalert.Color(0,0,0),150, 15, 1);
     energy.GaugeConfig(energy.Color(0,180,40));
+    environment.EnvironmentConfig(environment.Color(0,0,0), environment.Color(0,0,0), 1, 1, 1);
+    
 }
 
 
