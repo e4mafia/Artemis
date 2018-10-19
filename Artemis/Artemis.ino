@@ -50,7 +50,8 @@ public:
     
     uint32_t Color1, Color2;  // What colors are in use
     uint16_t TotalSteps;  // total number of steps in the pattern
-    uint16_t Index;  // current step within the pattern
+    uint16_t Index;         // current step within the pattern
+    uint16_t Index2;
     uint16_t State;
     uint16_t State2;
     uint16_t Trail;
@@ -357,17 +358,87 @@ public:
         }
         
     }
+    
+    void ShieldsConfig(uint32_t color, uint32_t color2)
+    {
+        if (debugMode == 4) {Serial.println("ShieldseConfig() detected"); delay(2000);}
+        ActivePattern = SHIELDS;
+        Interval = 40;
+        Index = numPixels()/2 + 1;
+        Index2 = numPixels()/2 - 1;
+        Color1 = color;
+        Color2 = color2;
+        setPixelColor(numPixels()/2, 0, 0, 255);
+        show();
+    }
+        
         //Update front shield gauge
         //will need to check logic for when one is up and the other down
     void FrontShieldUpdate()
     {
-        if (debugMode == 1) {Serial.println("FrontShieldUpdate() detected"); delay(2000);}
+        if (debugMode == 4) {Serial.println("FrontShieldUpdate() detected"); delay(2000);}
+        unsigned long ControlState =  numPixels()/2 + (State * .3);
+        if (State != 0)
+        {
+            if (Index < ControlState)
+            {
+                setPixelColor(Index, Color1);
+                show();
+                Index++;
+            }
+            else if (Index > ControlState)
+            {
+                setPixelColor(Index, 0,0,0);
+                show();
+                Index--;
+            }
+        }
+        else
+        {
+            if (Index > ControlState)
+            {
+                setPixelColor(Index,0,0,0);
+                show();
+                Index--;
+            }
+        }
+        setPixelColor((numPixels() / 2), 0, 0, 255);
+    
     }
         //update rear shield gauge
         //will need to check logic for when one is up and the other down
     void RearShieldUpdate()
     {
-        if (debugMode == 1) {Serial.println("RearShieldUpdate() detected"); delay(2000);}
+        if (debugMode == 4) {Serial.println("RearShieldUpdate() detected"); delay(2000);}
+        {
+            if (debugMode == 4) {Serial.println("FrontShieldUpdate() detected"); delay(2000);}
+            
+            unsigned long ControlState2 = numPixels() / 2 - (State2 * .3);
+            if (State2 != 0)
+            {
+                if (Index2 > ControlState2)
+                {
+                    setPixelColor(Index2, Color1);
+                    show();
+                    Index2--;
+                }
+                else if (Index2 < ControlState2)
+                {
+                    setPixelColor(Index2, 0,0,0);
+                    show();
+                    Index2++;
+                }
+            }
+            else
+            {
+                if (Index2 < ControlState2)
+                {
+                    setPixelColor(Index2,0,0,0);
+                    show();
+                    Index2++;
+                }
+            }
+        }
     }
     
     void effectReset()
@@ -497,6 +568,7 @@ void setup()
     redalert.FadeConfig(redalert.Color(200,0,0), redalert.Color(0,0,0),150, 15, 1);
     energy.GaugeConfig(energy.Color(0,180,40));
     environment.EnvironmentConfig(environment.Color(0,0,0), environment.Color(0,0,0), 1, 1, 1);
+    shields.ShieldsConfig(shields.Color(0,0,150), shields.Color(0,0,150));
     
 }
 
