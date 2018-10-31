@@ -334,12 +334,15 @@ public:
         Interval = 20;
         Index = 0;
         Count = 0;
+        TotalSteps = numPixels();
+        Direction = FORWARD;
     }
         //Update Gauge effect
     void GaugeUpdate()
     {
         if (debugMode == 1) {Serial.println("GaugeUpdate() detected"); delay(2000);}
-        if ( Count > 3) {effectReset(); Count = 0;}
+        if (State == 0) { Count++; }
+        if ( Count > 2) {effectReset(); Count = 0; Index = 0; Serial.println("Reset Gauge");}
         if (State != 0)
         {
             unsigned long ControlState = (State * numPixels()) / 100;
@@ -358,10 +361,30 @@ public:
         }
         
     }
-    
+
+        //Update Gauge effect
+ /*   void GaugeUpdate()
+    {
+        //if (State == 0) { Count++; }
+        //if ( Count > 2) {effectReset(); Count = 0;}
+        if (State != 0)
+        {
+            unsigned long ControlState = (State * numPixels()) / 100;
+            Serial.println((String)"Control = " + ControlState + " -- Index = " + Index);
+            setPixelColor(Index,0,0,0);
+            if (Index <=  ControlState)
+                {
+                    setPixelColor(Index,Color1);
+                    Serial.println((String)"Set light #  " + Index + " to ON");
+                }
+            show();
+            Increment();
+            }
+    }
+*/
     void ShieldsConfig(uint32_t color, uint32_t color2)
     {
-        if (debugMode == 4) {Serial.println("ShieldseConfig() detected"); delay(2000);}
+        if (debugMode == 4) {Serial.println("ShieldsConfig() detected"); delay(2000);}
         ActivePattern = SHIELDS;
         Interval = 40;
         Index = numPixels()/2 + 1;
@@ -450,7 +473,7 @@ public:
         // Initialize for a Fade
     void EnvironmentConfig(uint32_t color1, uint32_t color2, uint16_t steps, uint8_t interval, int bounce, direction dir = FORWARD)
     {
-        if (debugMode == 1) {Serial.println("FadeConfig() detected");delay(1000);}
+        if (debugMode == 5) {Serial.println("EnvironmentConfig() detected");delay(1000);}
         ActivePattern = ENVIRONMENT;
         Interval = interval;
         TotalSteps = steps;
@@ -472,18 +495,18 @@ public:
                 switch (State)
                 {
                     case 1:     //Within Nebula
-                        EnvironmentConfig(Color(0,25,0), Color(50,0,150), 75, 5, 1);
+                        EnvironmentConfig(Color(0,25,0), Color(50,0,150), 200, 5, 1);
                         break;
-                    case 2:     //Completely Docked
-                        EnvironmentConfig(Color(180,180,0), Color(80,0,0), 100, 20, 1);
+                    case 2:     //Docking
+                        EnvironmentConfig(Color(180,180,0), Color(80,80,0), 100, 20, 1);
                         break;
-                    case 3:
+                    case 3:     //Docked
                         EnvironmentConfig(Color(180,180,0), Color(180,180,0), 1, 100, 0);
                         break;
-                    case 4:
+                    case 4:     //Shield Hit
                         EnvironmentConfig(Color(0,0,200), Color(0,0,100), 5, 5, 0);
                         break;
-                    case 5:
+                    case 5:     //Ship hit
                         EnvironmentConfig(Color(255,0,0), Color(255,140,0), 5, 5, 0);
                         break;
                     default:
@@ -514,11 +537,11 @@ public:
 };
 
     // Define variables and constants
-NeoPatterns engines(60, 2, NEO_GRB + NEO_KHZ800);
-NeoPatterns energy(60, 3, NEO_GRB + NEO_KHZ800);
+NeoPatterns engines(60, 6, NEO_GRB + NEO_KHZ800);
+NeoPatterns energy(60, 5, NEO_GRB + NEO_KHZ800);
 NeoPatterns shields(60, 4, NEO_GRB + NEO_KHZ800);
-NeoPatterns redalert(60, 6, NEO_GRB + NEO_KHZ800);
-NeoPatterns environment(60, 7, NEO_GRB + NEO_KHZ800);
+NeoPatterns redalert(60, 2, NEO_GRB + NEO_KHZ800);
+NeoPatterns environment(60, 3, NEO_GRB + NEO_KHZ800);
 
 byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };    //manual MAC address of the ethernet port on the Arduino.
     //This can be completely arbitrary in my environment as this will
@@ -566,7 +589,7 @@ void setup()
     engines.ImpulseConfig(engines.Color(200,100,0), 0);
     engines.WarpChaseConfig(engines.Color(180,0,200), 10);
     redalert.FadeConfig(redalert.Color(200,0,0), redalert.Color(0,0,0),150, 15, 1);
-    energy.GaugeConfig(energy.Color(0,180,40));
+    energy.GaugeConfig(energy.Color(10,100,10));
     environment.EnvironmentConfig(environment.Color(0,0,0), environment.Color(0,0,0), 1, 1, 1);
     shields.ShieldsConfig(shields.Color(0,0,150), shields.Color(0,0,150));
     
@@ -598,7 +621,7 @@ void loop()
         environment.State = packetBuffer[24];   //environment state: ??
         
         //Stabilize Energy Gauge
-        if (energy.State == 0) { energy.Count++; }
+        
         
         for (int i = 18; i < 30; i++)
         {
@@ -606,6 +629,13 @@ void loop()
             Serial.print(" ");
         }
         Serial.println();
+        Serial.println((String)"Impulse: " + packetBuffer[18]);
+        Serial.println((String)"Warp: " + packetBuffer[19]);
+        Serial.println((String)"Energy: " + packetBuffer[20]);
+        Serial.println((String)"Front Shields: " + packetBuffer[21]);
+        Serial.println((String)"Rear Shields: " + packetBuffer[22]);
+        Serial.println((String)"Red Alert: " + packetBuffer[23]);
+        Serial.println((String)"Environment: " + packetBuffer[24]);
         
         
         
