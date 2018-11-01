@@ -8,7 +8,7 @@
     //                 Bob Smith
     //
     // Date            10/13/18 8:18 PM
-    // Version        0.1
+    // Version        1.0
     //
     // Copyright    © Bob Smith, 2018
     // Licence        CC Share Alike
@@ -59,8 +59,10 @@ public:
     uint16_t Target;
     uint16_t CurrentStep;
     uint8_t Bounce;
-    float tState;
+    uint8_t SaveState;
+    unsigned long tState;
     uint8_t StartIndex;
+    
     
     
     
@@ -299,7 +301,33 @@ public:
     {
         if (State != 0 && State2 == 0)
         {
-        Interval = (1330/33)-((10*State)/33);  //thanks, Wolfram Alpha interpolate function!
+            switch (State)
+            {
+                case 1:
+                    Interval = 40;
+                    break;
+                case 20:
+                    Interval = 35;
+                    break;
+                case 40:
+                    Interval = 30;
+                    break;
+                case 60:
+                    Interval = 20;
+                    break;
+                case 80:
+                    Interval = 13;
+                    break;
+                case 100:
+                    Interval = 7;
+                    break;
+                default:
+                    break;
+            }
+            
+            //Interval = (1330/33)-((10*State)/33);
+             //thanks, Wolfram Alpha interpolate function! -- This is an alternate way of computing speed
+             //droped it because i was flaky somewhere else. Reinstate for ver. 2.0
             for (int i = 0; i < numPixels(); i++)
             {
                 if (i == Index)  // Scan Pixel to the right
@@ -342,7 +370,7 @@ public:
     {
         if (debugMode == 1) {Serial.println("GaugeUpdate() detected"); delay(2000);}
         if (State == 0) { Count++; }
-        if ( Count > 2) {effectReset(); Count = 0; Index = 0; Serial.println("Reset Gauge");}
+        if ( Count > 4) {effectReset(); Count = 0; Index = 0; Serial.println("Reset Gauge");}
         if (State != 0)
         {
             unsigned long ControlState = (State * numPixels()) / 100;
