@@ -26,6 +26,8 @@
 
 
     // Set parameters
+    // These parameters, and a large amount of the code are based on the Adafruit Multitasking Code examples at https://learn.adafruit.com/multi-tasking-the-arduino-part-3/put-it-all-together-dot-dot-dot
+
 int debugMode = 0;
 enum  pattern { NONE, IMPULSE, FADE, WARPCHASE, GAUGE, SHIELDS, ENVIRONMENT };
 enum  direction { FORWARD, REVERSE };
@@ -36,6 +38,7 @@ enum enviro { NEBULA, DOCKED, HIT, SHIELDHIT, RUN };
     // Define structures and classes
 
     // NeoPattern Class - derived from the Adafruit_NeoPixel class
+    // 90% of the class information here comes from Bill Earl, who writes on the Adafruit pages, as mentioned above
 class NeoPatterns : public Adafruit_NeoPixel
 {
 public:
@@ -92,6 +95,7 @@ public:
                 case GAUGE:
                     GaugeUpdate();
                     break;
+                        //because the shields compinent is a single object, we need to update both the front and rear pieces int he same update step
                 case SHIELDS:
                     FrontShieldUpdate();
                     RearShieldUpdate();
@@ -197,7 +201,7 @@ public:
         // Calculate a dimmed version of a color (used by ImpulseUpdate())
     uint32_t DimColor(uint32_t color)
     {
-        float shader = .2;
+        float shader = .1;
             // Shift R, G and B components one bit to the right
             //uint32_t dimColor = Color(Red(color) >> 1, Green(color) >> 1, Blue(color) >> 1);
         uint32_t dimColor = Color(Red(color) * (1-shader) , Green(color) * (1-shader), Blue(color) * (1 - shader));
@@ -232,7 +236,8 @@ public:
         return color & 0xFF;
     }
     
-        //WarpChase setup
+    /*WarpChase setup
+     A chase pattern that is set to go faster when Artemis is going faster. Important to note is that these effects are directly tied to the configuration for DMX set in Artemis DMX editor. Included in this repository are the proper config files. They will need to go into %appdata%/Artemis DMX Tools-----******Validate location needed*/
     void WarpChaseConfig(uint32_t color2, int len, direction dir = FORWARD)
     {
         if (debugMode == 1) {Serial.println("WarpChaseConfig() detected"); delay(2000);}
@@ -250,6 +255,7 @@ public:
         if (debugMode == 1) {Serial.println("WarpChaseUpdate() detected"); delay(2000);}
         if (State2 != 0)
         {
+                //sets the speed of the pattern
             switch (State2)
             {
                 case 25:
@@ -285,6 +291,18 @@ public:
                         ImpulseConfig(Color1, 0);
                     }
             }
+            setPixelColor(Index + Trail, Color2);
+            setPixelColor(Index-1, 0,0,0);
+            show();
+            Increment();
+        }
+        else
+                //if warp is off then reset to impulse config
+        {
+            effectReset();
+            ImpulseConfig(Color1, 0);
+        }
+    }
     
         // Initialize for Impulse power
     void ImpulseConfig(uint32_t color1, uint8_t interval)
@@ -300,6 +318,7 @@ public:
     void ImpulseUpdate()
     {
         if (State != 0 && State2 == 0)
+                //sets impulse effect speed. Makes sure that warp is off
         {
             switch (State)
             {
@@ -325,9 +344,10 @@ public:
                     break;
             }
             
-            //Interval = (1330/33)-((10*State)/33);
-             //thanks, Wolfram Alpha interpolate function! -- This is an alternate way of computing speed
-             //droped it because i was flaky somewhere else. Reinstate for ver. 2.0
+                //Interval = (1330/33)-((10*State)/33); Alt method of setting speed. may need fixes
+                //thanks, Wolfram Alpha interpolate function! -- This is an alternate way of computing speed
+                //droped it because i was flaky somewhere else. Reinstate for ver. 2.0
+                // Animation for the impulse effect
             for (int i = 0; i < numPixels(); i++)
             {
                 if (i == Index)  // Scan Pixel to the right
@@ -348,12 +368,14 @@ public:
         }
         else
         {
+                //if warp is on, then configure for warp effect
             effectReset();
             WarpChaseConfig(Color2, 10);
         }
         
     }
         //Configure Gauge parameters
+        //this is generic code for a marconi light style gauge. There is some issues right now with the DMX settings from artemis, but the code here works fine.
     void GaugeConfig(uint32_t color)
     {
         if (debugMode == 1) {Serial.println("GaugeConfig() detected"); delay(2000);}
@@ -389,28 +411,30 @@ public:
         }
         
     }
-
+        //inital attempt at this. May still need debugging. Havent decided to get rid of it or not
         //Update Gauge effect
- /*   void GaugeUpdate()
-    {
-        //if (State == 0) { Count++; }
-        //if ( Count > 2) {effectReset(); Count = 0;}
-        if (State != 0)
-        {
-            unsigned long ControlState = (State * numPixels()) / 100;
-            Serial.println((String)"Control = " + ControlState + " -- Index = " + Index);
-            setPixelColor(Index,0,0,0);
-            if (Index <=  ControlState)
-                {
-                    setPixelColor(Index,Color1);
-                    Serial.println((String)"Set light #  " + Index + " to ON");
-                }
-            show();
-            Increment();
-            }
-    }
-*/
+    /*   void GaugeUpdate()
+     {
+     //if (State == 0) { Count++; }
+     //if ( Count > 2) {effectReset(); Count = 0;}
+     if (State != 0)
+     {
+     unsigned long ControlState = (State * numPixels()) / 100;
+     Serial.println((String)"Control = " + ControlState + " -- Index = " + Index);
+     setPixelColor(Index,0,0,0);
+     if (Index <=  ControlState)
+     {
+     setPixelColor(Index,Color1);
+     Serial.println((String)"Set light #  " + Index + " to ON");
+     }
+     show();
+     Increment();
+     }
+     }
+     */
+        //Sets the configuration for initializing the shields. Creates a center point, and preps variables for upper and lower segments of the gauge
     void ShieldsConfig(uint32_t color, uint32_t color2)
+    
     {
         if (debugMode == 4) {Serial.println("ShieldsConfig() detected"); delay(2000);}
         ActivePattern = SHIELDS;
@@ -422,9 +446,10 @@ public:
         setPixelColor(numPixels()/2, 0, 0, 255);
         show();
     }
-        
+    
         //Update front shield gauge
         //will need to check logic for when one is up and the other down
+        //looks at the state for upper half and lower half and updates as needed
     void FrontShieldUpdate()
     {
         if (debugMode == 4) {Serial.println("FrontShieldUpdate() detected"); delay(2000);}
@@ -454,7 +479,7 @@ public:
             }
         }
         setPixelColor((numPixels() / 2), 0, 0, 255);
-    
+        
     }
         //update rear shield gauge
         //will need to check logic for when one is up and the other down
@@ -493,12 +518,14 @@ public:
     }
     
     void effectReset()
+        //clears out a light strip, but leaves the Index where it was.
     {
         ColorSet(Color(0,0,0));
         show();
     }
     
         // Initialize for a Fade
+        //This effect transitions between 2 colors. The "bounce" variable tells the effect to reverse at the end of a cycle and again at the beginnning
     void EnvironmentConfig(uint32_t color1, uint32_t color2, uint16_t steps, uint8_t interval, int bounce, direction dir = FORWARD)
     {
         if (debugMode == 5) {Serial.println("EnvironmentConfig() detected");delay(1000);}
@@ -514,34 +541,37 @@ public:
     }
     
         // Update the Fade Pattern
+        //environment uses a series of fades, based on what event or state is coming from Artemis DMX
     void EnvironmentUpdate()
     {
         if (debugMode == 3) {Serial.println("EnvironmentUpdate() detected");
             Serial.println((String)"Index = " + Index + "   State = " + State + "  State2 = " + State2); delay(1000);}
         if (State != 0 && State != State2)
         {
-                switch (State)
-                {
-                    case 1:     //Within Nebula
-                        EnvironmentConfig(Color(0,25,0), Color(50,0,150), 200, 5, 1);
-                        break;
-                    case 2:     //Docking
-                        EnvironmentConfig(Color(180,180,0), Color(80,80,0), 100, 20, 1);
-                        break;
-                    case 3:     //Docked
-                        EnvironmentConfig(Color(180,180,0), Color(180,180,0), 1, 100, 0);
-                        break;
-                    case 4:     //Shield Hit
-                        EnvironmentConfig(Color(0,0,200), Color(0,0,100), 5, 5, 0);
-                        break;
-                    case 5:     //Ship hit
-                        EnvironmentConfig(Color(255,0,0), Color(255,140,0), 5, 5, 0);
-                        break;
-                    default:
-                        break;
-                }
+                // Sets which color and timing config to use
+            switch (State)
+            {
+                case 1:     //Within Nebula
+                    EnvironmentConfig(Color(0,25,0), Color(50,0,150), 200, 5, 1);
+                    break;
+                case 2:     //Docking
+                    EnvironmentConfig(Color(180,180,0), Color(80,80,0), 100, 20, 1);
+                    break;
+                case 3:     //Docked
+                    EnvironmentConfig(Color(180,180,0), Color(180,180,0), 1, 100, 0);
+                    break;
+                case 4:     //Shield Hit
+                    EnvironmentConfig(Color(0,0,200), Color(0,0,100), 5, 5, 0);
+                    break;
+                case 5:     //Ship hit
+                    EnvironmentConfig(Color(255,0,0), Color(255,140,0), 5, 5, 0);
+                    break;
+                default:
+                    break;
+            }
         }
         if (State != 0)
+                //runs the effect animation
         {
             
                 // Calculate linear interpolation between Color1 and Color2
@@ -552,7 +582,7 @@ public:
             
             ColorSet(Color(red, green, blue));
             show();
-            //StartIndex = Index;
+                //StartIndex = Index;
             Increment();
             State2 = State;
         }
@@ -565,16 +595,20 @@ public:
 };
 
     // Define variables and constants
+    //instatiate the objects, including number of lights on the strip, and which pin the strip will be connected to
 NeoPatterns engines(60, 6, NEO_GRB + NEO_KHZ800);
 NeoPatterns energy(60, 5, NEO_GRB + NEO_KHZ800);
 NeoPatterns shields(60, 4, NEO_GRB + NEO_KHZ800);
 NeoPatterns redalert(60, 2, NEO_GRB + NEO_KHZ800);
 NeoPatterns environment(60, 3, NEO_GRB + NEO_KHZ800);
 
-byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };    //manual MAC address of the ethernet port on the Arduino.
+byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+    //manual MAC address of the ethernet port on the Arduino.
     //This can be completely arbitrary in my environment as this will
     //be directly connected to the arduino from the control PC on a private network*/
-IPAddress ip(192, 168, 100, 100); //Using local Private as the arduino is directly connected to the computer
+    //Address for the port
+IPAddress ip(192, 168, 100, 100);
+
 unsigned int localPort = 6454;      // local port to listen on for DMX packets
 byte packetBuffer[600]; // buffer to hold incoming packet, DMX packet is pretty much always 530 bytes
 EthernetUDP Udp; // An EthernetUDP instance to let us send and receive packets over UDP
@@ -615,17 +649,13 @@ void setup()
     
         //Initial config of effect objects
     engines.ImpulseConfig(engines.Color(200,100,0), 0);
-    engines.WarpChaseConfig(engines.Color(180,0,200), 10);
+    engines.WarpChaseConfig(engines.Color(180,0,200), 15);
     redalert.FadeConfig(redalert.Color(200,0,0), redalert.Color(0,0,0),150, 15, 1);
     energy.GaugeConfig(energy.Color(10,100,10));
     environment.EnvironmentConfig(environment.Color(0,0,0), environment.Color(0,0,0), 1, 1, 1);
     shields.ShieldsConfig(shields.Color(0,0,150), shields.Color(0,0,150));
     
 }
-
-
-
-
 
     // Main loop
 void loop()
@@ -648,36 +678,36 @@ void loop()
         redalert.State = packetBuffer[23];  //Red alert state: 0-1
         environment.State = packetBuffer[24];   //environment state: ??
         
-        //Stabilize Energy Gauge
         
-        
-        for (int i = 18; i < 30; i++)
-        {
-            Serial.print(packetBuffer[i], HEX);
-            Serial.print(" ");
+            //Print the buffer values to the serial output if debugging is enabled
+        if (debugMode != 0) {
+            for (int i = 18; i < 30; i++)
+            {
+                Serial.print(packetBuffer[i], HEX);
+                Serial.print(" ");
+                Serial.println();
+                Serial.println((String)"Impulse: " + packetBuffer[18]);
+                Serial.println((String)"Warp: " + packetBuffer[19]);
+                Serial.println((String)"Energy: " + packetBuffer[20]);
+                Serial.println((String)"Front Shields: " + packetBuffer[21]);
+                Serial.println((String)"Rear Shields: " + packetBuffer[22]);
+                Serial.println((String)"Red Alert: " + packetBuffer[23]);
+                Serial.println((String)"Environment: " + packetBuffer[24]);
+            }
+            
         }
-        Serial.println();
-        Serial.println((String)"Impulse: " + packetBuffer[18]);
-        Serial.println((String)"Warp: " + packetBuffer[19]);
-        Serial.println((String)"Energy: " + packetBuffer[20]);
-        Serial.println((String)"Front Shields: " + packetBuffer[21]);
-        Serial.println((String)"Rear Shields: " + packetBuffer[22]);
-        Serial.println((String)"Red Alert: " + packetBuffer[23]);
-        Serial.println((String)"Environment: " + packetBuffer[24]);
-        
-        
-        
+            //Update animation sequences for each object
+        engines.Update();
+        energy.Update();
+        shields.Update();
+        redalert.Update();
+        environment.Update();
     }
-    engines.Update();
-    energy.Update();
-    shields.Update();
-    redalert.Update();
-    environment.Update();
-}
-
-
-
-
-
-
+    
+    
+    
+    
+    
+    
+    
 
