@@ -37,6 +37,11 @@
 #	LiquidCrystal RobotIRremote Robot_Control Robot_Motor SD Servo 
 #	SpacebrewYun Stepper TFT Temboo WiFi 
 #
+# ARDUINO : AVR = EEPROM HID SPI SoftwareSerial Wire 
+# ARDUINO : common = Bridge Esplora Ethernet Firmata GSM 
+#	LiquidCrystal RobotIRremote Robot_Control Robot_Motor SD Servo 
+#	SpacebrewYun Stepper TFT Temboo WiFi 
+#
 APP_LIBS_LIST = Ethernet EthernetUdp SPI EEPROM
 
 # List user's libraries here
@@ -50,6 +55,8 @@ APP_LIBS_LIST = Ethernet EthernetUdp SPI EEPROM
 #
 # USER = Adafruit_NeoPixel DMXSerial DMXSerial2 
 #	FastLED-master 
+#
+# USER = Adafruit_NeoPixel 
 #
 USER_LIBS_LIST = Adafruit_NeoPixel
 
@@ -112,6 +119,7 @@ MAKEFILE_PATH  = $(CURRENT_DIR)/Makefiles
 UTILITIES_PATH = $(CURRENT_DIR)/Utilities
 
 include $(MAKEFILE_PATH)/Step1.mk
+
 
 
 

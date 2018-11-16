@@ -371,23 +371,24 @@ public:
         if (debugMode == 1) {Serial.println("GaugeUpdate() detected"); delay(2000);}
         if (State == 0) { Count++; }
         if ( Count > 4) {effectReset(); Count = 0; Index = 0; Serial.println("Reset Gauge");}
-        if (State != 0)
+        if (State != 0 && State <200)
         {
             unsigned long ControlState = (State * numPixels()) / 100;
-            if (Index <= ControlState)
-            {
-                setPixelColor(Index, Color1);
-                show();
-                Index++;
-            }
-            else if (Index > ControlState)
-            {
-                setPixelColor(Index, 0,0,0);
-                show();
-                Index--;
-            }
+            LightUp(0, Index, Color1);
+            LightUp(Index+1, numPixels(), Color(0,0,0));
+            if (Index <= ControlState){Index++;}
+            if (Index > ControlState){Index--;}
+            show();
         }
         
+    }
+    
+    void LightUp(int start, int finish, uint32_t color)
+    {
+        for (int i = start; i <= finish; i++)
+        {
+            setPixelColor(i, color);
+        }
     }
 
         //Update Gauge effect
@@ -574,7 +575,7 @@ NeoPatterns environment(60, 3, NEO_GRB + NEO_KHZ800);
 byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };    //manual MAC address of the ethernet port on the Arduino.
     //This can be completely arbitrary in my environment as this will
     //be directly connected to the arduino from the control PC on a private network*/
-IPAddress ip(192, 168, 100, 100); //Using local Private as the arduino is directly connected to the computer
+IPAddress ip(10, 0, 1, 251); //Using local Private as the arduino is directly connected to the computer
 unsigned int localPort = 6454;      // local port to listen on for DMX packets
 byte packetBuffer[600]; // buffer to hold incoming packet, DMX packet is pretty much always 530 bytes
 EthernetUDP Udp; // An EthernetUDP instance to let us send and receive packets over UDP
