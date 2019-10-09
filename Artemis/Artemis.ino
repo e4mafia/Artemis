@@ -8,7 +8,7 @@
   //                 Bob Smith
   //
   // Date           5/31/19 8:18 PM
-  // Version        1.0
+  // Version        1.1
   //
   // Copyright    © Bob Smith, 2018
   // Licence        CC Share Alike
@@ -372,12 +372,12 @@ public:
   void GaugeUpdate()
   {
     //if (debugMode == 1) { Serial.println("GaugeUpdate() detected"); delay(2000); }
-    if (State == 0) { Count++; }
+    //if (State == 0) { Count++; }
     //if (Count > 4) { effectReset(); Count = 0; Index = 0; Serial.println("Reset Gauge"); }
     //Serial.println("TESTTESTTEST");
-    if (State != 0)
-    {
-      Count = 0;
+   // if (State != 0)
+    //{
+      //Count = 0;
       unsigned long ControlState = (State * numPixels()) / 100;
       if (Index <= ControlState)
       {
@@ -391,7 +391,7 @@ public:
         show();
         Index--;
       }
-    }
+  //  }
 
   }
 
@@ -579,12 +579,12 @@ NeoPatterns redalert(60, 2, NEO_GRB + NEO_KHZ800);
 NeoPatterns environment(60, 3, NEO_GRB + NEO_KHZ800);
 
 byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };    //manual MAC address of the ethernet port on the Arduino.
-  //Choose an IP Address on the same network as the device that will be outputting the ArtNET packets
-//
-IPAddress ip(10, 0, 1, 100);
+  //This can be completely arbitrary in my environment as this will
+  //be directly connected to the arduino from the control PC on a private network*/
+IPAddress ip(10, 0, 1, 100); //Using local Private as the arduino is directly connected to the computer
 unsigned int localPort = 6454;      // local port to listen on for DMX packets
-byte packetBuffer[600];             // buffer to hold incoming packet, DMX packet is pretty much always 530 bytes
-EthernetUDP Udp;                    // An EthernetUDP instance to let us send and receive packets over UDP
+byte packetBuffer[600]; // buffer to hold incoming packet, DMX packet is pretty much always 530 bytes
+EthernetUDP Udp; // An EthernetUDP instance to let us send and receive packets over UDP
 
 
   // Prototypes
@@ -601,18 +601,18 @@ EthernetUDP Udp;                    // An EthernetUDP instance to let us send an
 
 void setup()
 {
-    //    wait for serial connection to come up -- Only needed for testing
-    Serial.begin(9600);
-    while (!Serial) {
-      ;
-    }
-    //start ethernet session
+  //start ethernet session
   Ethernet.init(10);
   Ethernet.begin(mac, ip);
 
   //    start udp session
   Udp.begin(localPort);
 
+  //    wait for serial connection to come up -- Only needed for testing
+  Serial.begin(115200);
+  while (!Serial) {
+    ;
+  }
   // Initialize all the pixelStrips
   engines.begin();
   energy.begin();
