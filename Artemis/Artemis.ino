@@ -1,713 +1,684 @@
-    //
-    // Artemis-Mega
-    //
-    // Description of the project
-    // Developed with [embedXcode](http://embedXcode.weebly.com)
-    //
-    // Author         Bob Smith
-    //                 Bob Smith
-    //
-    // Date            10/13/18 8:18 PM
-    // Version        1.0
-    //
-    // Copyright    © Bob Smith, 2018
-    // Licence        CC Share Alike
-    //
-    // See         ReadMe.txt for references
-    //
+//
+  // Artemis-Mega
+  //
+  // Description of the project
+  // Developed with [embedXcode](http://embedXcode.weebly.com)
+  //
+  // Author         Bob Smith
+  //                 Bob Smith
+  //
+  // Date           5/31/19 8:18 PM
+  // Version        1.0
+  //
+  // Copyright    © Bob Smith, 2018
+  // Licence        CC Share Alike
+  //
+  // See         ReadMe.txt for references
+  //
 
 
-    // Core library for code-sense - IDE-based
-    // !!! Help: http://bit.ly/2AdU7cu
+  // Core library for code-sense - IDE-based
+  // !!! Help: http://bit.ly/2AdU7cu
 #include "Arduino.h"
 #include <Arduino.h>
-#include "Ethernet.h"
+//#include "Ethernet.h"
+#include <Ethernet.h>
 #include <EthernetUdp.h>
 
 
-    // Set parameters
-    // These parameters, and a large amount of the code are based on the Adafruit Multitasking Code examples at https://learn.adafruit.com/multi-tasking-the-arduino-part-3/put-it-all-together-dot-dot-dot
-
+  // Set parameters
 int debugMode = 0;
 enum  pattern { NONE, IMPULSE, FADE, WARPCHASE, GAUGE, SHIELDS, ENVIRONMENT };
 enum  direction { FORWARD, REVERSE };
 enum enviro { NEBULA, DOCKED, HIT, SHIELDHIT, RUN };
-    // Include application, user and local libraries
+// Include application, user and local libraries
 #include "Adafruit_NeoPixel.h"
 #include <Adafruit_NeoPixel.h>
-    // Define structures and classes
+  // Define structures and classes
 
-    // NeoPattern Class - derived from the Adafruit_NeoPixel class
-    // 90% of the class information here comes from Bill Earl, who writes on the Adafruit pages, as mentioned above
+  // NeoPattern Class - derived from the Adafruit_NeoPixel class
 class NeoPatterns : public Adafruit_NeoPixel
 {
 public:
-    
-        // Member Variables:
-    pattern  ActivePattern;  // which pattern is running
-    direction Direction;     // direction to run the pattern
-    enviro Environment;
-    
-    unsigned long Interval;   // milliseconds between updates
-    unsigned long lastUpdate; // last update of position
-    
-    uint32_t Color1, Color2;  // What colors are in use
-    uint16_t TotalSteps;  // total number of steps in the pattern
-    uint16_t Index;         // current step within the pattern
-    uint16_t Index2;
-    uint16_t State;
-    uint16_t State2;
-    uint16_t Trail;
-    uint16_t Count;
-    uint16_t Target;
-    uint16_t CurrentStep;
-    uint8_t Bounce;
-    uint8_t SaveState;
-    unsigned long tState;
-    uint8_t StartIndex;
-    
-    
-    
-    
-        // Constructor - calls base-class constructor to initialize strip
-    NeoPatterns(uint16_t pixels, uint8_t pin, uint8_t type)
+
+  // Member Variables:
+  pattern  ActivePattern;  // which pattern is running
+  direction Direction;     // direction to run the pattern
+  enviro Environment;
+
+  unsigned long Interval;   // milliseconds between updates
+  unsigned long lastUpdate; // last update of position
+
+  uint32_t Color1, Color2;  // What colors are in use
+  uint16_t TotalSteps;  // total number of steps in the pattern
+  uint16_t Index;         // current step within the pattern
+  uint16_t Index2;
+  uint16_t State;
+  uint16_t State2;
+  uint16_t Trail;
+  uint16_t Count;
+  uint16_t Target;
+  uint16_t CurrentStep;
+  uint8_t Bounce;
+  uint8_t SaveState;
+  unsigned long tState;
+  uint8_t StartIndex;
+
+
+
+
+  // Constructor - calls base-class constructor to initialize strip
+  NeoPatterns(uint16_t pixels, uint8_t pin, uint8_t type)
     :Adafruit_NeoPixel(pixels, pin, type)
+  {
+  }
+  // Update the pattern
+  void Update()
+  {
+
+    if ((millis() - lastUpdate) > Interval) // time to update
     {
+      lastUpdate = millis();
+      switch (ActivePattern)
+      {
+      case IMPULSE:
+        ImpulseUpdate();
+        break;
+      case FADE:
+        FadeUpdate();
+        break;
+      case WARPCHASE:
+        WarpChaseUpdate();
+        break;
+      case GAUGE:
+        GaugeUpdate();
+        break;
+      case SHIELDS:
+        FrontShieldUpdate();
+        RearShieldUpdate();
+        break;
+      case ENVIRONMENT:
+        EnvironmentUpdate();
+      default:
+        break;
+      }
     }
-        // Update the pattern
-    void Update()
+
+  }
+
+  // Increment the Index and reset at the end
+  void Increment()
+  {
+    if (Direction == FORWARD)
     {
-        
-        if((millis() - lastUpdate) > Interval) // time to update
-        {
-            lastUpdate = millis();
-            switch(ActivePattern)
-            {
-                case IMPULSE:
-                    ImpulseUpdate();
-                    break;
-                case FADE:
-                    FadeUpdate();
-                    break;
-                case WARPCHASE:
-                    WarpChaseUpdate();
-                    break;
-                case GAUGE:
-                    GaugeUpdate();
-                    break;
-                        //because the shields compinent is a single object, we need to update both the front and rear pieces int he same update step
-                case SHIELDS:
-                    FrontShieldUpdate();
-                    RearShieldUpdate();
-                    break;
-                case ENVIRONMENT:
-                    EnvironmentUpdate();
-                default:
-                    break;
-            }
-        }
-        
-    }
-    
-        // Increment the Index and reset at the end
-    void Increment()
-    {
-        if (Direction == FORWARD)
-        {
-            Index++;
-            if (Index >= TotalSteps)
-            {
-                Index = 0;
-                if (Bounce == 1)
-                {
-                    Reverse(); // call the comlpetion callback
-                }
-            }
-        }
-        else // Direction == REVERSE
-        {
-            --Index;
-            if (Index <= 0)
-            {
-                Index = TotalSteps-1;
-                if (Bounce == 1)
-                {
-                    Reverse(); // call the comlpetion callback
-                }
-                else
-                {
-                    Index = 0;
-                }
-            }
-        }
-    }
-    
-        // Reverse pattern direction
-    void Reverse()
-    {
-        if (Direction == FORWARD)
-        {
-            Direction = REVERSE;
-            Index = TotalSteps-1;
-        }
-        else
-        {
-            Direction = FORWARD;
-            Index = 0;
-        }
-    }
-    
-        // Initialize for a Fade
-    void FadeConfig(uint32_t color1, uint32_t color2, uint16_t steps, uint8_t interval, int bounce, direction dir = FORWARD)
-    {
-        if (debugMode == 1) {Serial.println("FadeConfig() detected");delay(1000);}
-        ActivePattern = FADE;
-        Interval = interval;
-        TotalSteps = steps;
-        Color1 = color1;
-        Color2 = color2;
+      Index++;
+      if (Index >= TotalSteps)
+      {
         Index = 0;
-        Direction = dir;
-        Bounce = bounce;
-        
-    }
-    
-        // Update the Fade Pattern
-    void FadeUpdate()
-    {
-        if (debugMode == 1) {Serial.println("FadeUpdate() detected");
-            Serial.print((String)"Index = " + Index); delay(1000);}
-        if (State != 0)
+        if (Bounce == 1)
         {
-                // Calculate linear interpolation between Color1 and Color2
-                // Optimise order of operations to minimize truncation error
-            uint8_t red = ((Red(Color1) * (TotalSteps - Index)) + (Red(Color2) * Index)) / TotalSteps;
-            uint8_t green = ((Green(Color1) * (TotalSteps - Index)) + (Green(Color2) * Index)) / TotalSteps;
-            uint8_t blue = ((Blue(Color1) * (TotalSteps - Index)) + (Blue(Color2) * Index)) / TotalSteps;
-            
-            ColorSet(Color(red, green, blue));
-            show();
-            StartIndex = Index;
-            Increment();
+          Reverse(); // call the comlpetion callback
+        }
+      }
+    }
+    else // Direction == REVERSE
+    {
+      --Index;
+      if (Index <= 0)
+      {
+        Index = TotalSteps - 1;
+        if (Bounce == 1)
+        {
+          Reverse(); // call the comlpetion callback
         }
         else
         {
-            effectReset();
-            Index = 0;
+          Index = 0;
         }
+      }
     }
-    
-    
-        // Calculate a dimmed version of a color (used by ImpulseUpdate())
-    uint32_t DimColor(uint32_t color)
+  }
+
+  // Reverse pattern direction
+  void Reverse()
+  {
+    if (Direction == FORWARD)
     {
-        float shader = .1;
-            // Shift R, G and B components one bit to the right
-            //uint32_t dimColor = Color(Red(color) >> 1, Green(color) >> 1, Blue(color) >> 1);
-        uint32_t dimColor = Color(Red(color) * (1-shader) , Green(color) * (1-shader), Blue(color) * (1 - shader));
-        return dimColor;
+      Direction = REVERSE;
+      Index = TotalSteps - 1;
     }
-    
-        // Set all pixels to a color (synchronously)
-    void ColorSet(uint32_t color)
+    else
     {
-        for (int i = 0; i < numPixels(); i++)
-        {
-            setPixelColor(i, color);
-        }
-        show();
+      Direction = FORWARD;
+      Index = 0;
     }
-    
-        // Returns the Red component of a 32-bit color
-    uint8_t Red(uint32_t color)
-    {
-        return (color >> 16) & 0xFF;
+  }
+
+  // Initialize for a Fade
+  void FadeConfig(uint32_t color1, uint32_t color2, uint16_t steps, uint8_t interval, int bounce, direction dir = FORWARD)
+  {
+    if (debugMode == 1) { Serial.println("FadeConfig() detected"); delay(1000); }
+    ActivePattern = FADE;
+    Interval = interval;
+    TotalSteps = steps;
+    Color1 = color1;
+    Color2 = color2;
+    Index = 0;
+    Direction = dir;
+    Bounce = bounce;
+
+  }
+
+  // Update the Fade Pattern
+  void FadeUpdate()
+  {
+    if (debugMode == 1) {
+      Serial.println("FadeUpdate() detected");
+      Serial.print((String)"Index = " + Index); delay(1000);
     }
-    
-        // Returns the Green component of a 32-bit color
-    uint8_t Green(uint32_t color)
+    if (State != 0)
     {
-        return (color >> 8) & 0xFF;
+      // Calculate linear interpolation between Color1 and Color2
+      // Optimise order of operations to minimize truncation error
+      uint8_t red = ((Red(Color1) * (TotalSteps - Index)) + (Red(Color2) * Index)) / TotalSteps;
+      uint8_t green = ((Green(Color1) * (TotalSteps - Index)) + (Green(Color2) * Index)) / TotalSteps;
+      uint8_t blue = ((Blue(Color1) * (TotalSteps - Index)) + (Blue(Color2) * Index)) / TotalSteps;
+
+      ColorSet(Color(red, green, blue));
+      show();
+      StartIndex = Index;
+      Increment();
     }
-    
-        // Returns the Blue component of a 32-bit color
-    uint8_t Blue(uint32_t color)
+    else
     {
-        return color & 0xFF;
+      effectReset();
+      Index = 0;
     }
-    
-    /*WarpChase setup
-     A chase pattern that is set to go faster when Artemis is going faster. Important to note is that these effects are directly tied to the configuration for DMX set in Artemis DMX editor. Included in this repository are the proper config files. They will need to go into %appdata%/Artemis DMX Tools-----******Validate location needed*/
-    void WarpChaseConfig(uint32_t color2, int len, direction dir = FORWARD)
+  }
+
+
+  // Calculate a dimmed version of a color (used by ImpulseUpdate())
+  uint32_t DimColor(uint32_t color)
+  {
+    float shader = .1; //orig .2    // Shift R, G and B components one bit to the right
+    //uint32_t dimColor = Color(Red(color) >> 1, Green(color) >> 1, Blue(color) >> 1);
+    uint32_t dimColor = Color(Red(color) * (1 - shader), Green(color) * (1 - shader), Blue(color) * (1 - shader));
+    return dimColor;
+  }
+
+  // Set all pixels to a color (synchronously)
+  void ColorSet(uint32_t color)
+  {
+    for (int i = 0; i < numPixels(); i++)
     {
-        if (debugMode == 1) {Serial.println("WarpChaseConfig() detected"); delay(2000);}
-        ActivePattern = WARPCHASE;
-        TotalSteps = numPixels();
-        Trail = len;
-        Color2 = color2;
-        Index = 0;
-        Direction = dir;
+      setPixelColor(i, color);
     }
-    
-        // Update the warpChase pattern
-    void WarpChaseUpdate()
+    show();
+  }
+
+  // Returns the Red component of a 32-bit color
+  uint8_t Red(uint32_t color)
+  {
+    return (color >> 16) & 0xFF;
+  }
+
+  // Returns the Green component of a 32-bit color
+  uint8_t Green(uint32_t color)
+  {
+    return (color >> 8) & 0xFF;
+  }
+
+  // Returns the Blue component of a 32-bit color
+  uint8_t Blue(uint32_t color)
+  {
+    return color & 0xFF;
+  }
+
+  //WarpChase setup
+  void WarpChaseConfig(uint32_t color2, int len, direction dir = FORWARD)
+  {
+    if (debugMode == 1) { Serial.println("WarpChaseConfig() detected"); delay(2000); }
+    ActivePattern = WARPCHASE;
+    TotalSteps = numPixels();
+    //Trail = len;
+    Trail = 30;
+    Color2 = color2;
+    Index = 0;
+    Direction = dir;
+  }
+
+  // Update the warpChase pattern
+  void WarpChaseUpdate()
+  {
+    if (debugMode == 1) { Serial.println("WarpChaseUpdate() detected"); delay(2000); }
+    if (State2 != 0)
     {
-        if (debugMode == 1) {Serial.println("WarpChaseUpdate() detected"); delay(2000);}
-        if (State2 != 0)
-        {
-                //sets the speed of the pattern
-            switch (State2)
-            {
-                case 25:
-                    Interval = 25;
-                    break;
-                case 50:
-                    Interval = 20;
-                    break;
-                case 75:
-                    Interval = 13;
-                    break;
-                case 100:
-                    Interval = 7;
-                    break;
-                default:
-                    break;
-            }
-            
-                    //Trail = (25 * State2) / 100;
-                    
-                    if (Index+Trail>numPixels())
-                    {
-                        setPixelColor(Index + Trail - numPixels(),Color2);
-                    }
-                    setPixelColor(Index + Trail, Color2);
-                    setPixelColor(Index-1, 0,0,0);
-                    show();
-                    Increment();
-                }
-                    else
-                    {
-                        effectReset();
-                        ImpulseConfig(Color1, 0);
-                    }
-            }
-            setPixelColor(Index + Trail, Color2);
-            setPixelColor(Index-1, 0,0,0);
-            show();
-            Increment();
-        }
-        else
-                //if warp is off then reset to impulse config
-        {
-            effectReset();
-            ImpulseConfig(Color1, 0);
-        }
-    }
-    
-        // Initialize for Impulse power
-    void ImpulseConfig(uint32_t color1, uint8_t interval)
-    {
-        ActivePattern = IMPULSE;
-        Interval = interval;
-        TotalSteps = (numPixels() - 1) * 2;
-        Color1 = color1;
-        Index = 0;
-    }
-    
-        // Update the Impulse Pattern
-    void ImpulseUpdate()
-    {
-        if (State != 0 && State2 == 0)
-                //sets impulse effect speed. Makes sure that warp is off
-        {
-            switch (State)
-            {
-                case 1:
-                    Interval = 40;
-                    break;
-                case 20:
-                    Interval = 35;
-                    break;
-                case 40:
-                    Interval = 30;
-                    break;
-                case 60:
-                    Interval = 20;
-                    break;
-                case 80:
-                    Interval = 13;
-                    break;
-                case 100:
-                    Interval = 7;
-                    break;
-                default:
-                    break;
-            }
-            
-                //Interval = (1330/33)-((10*State)/33); Alt method of setting speed. may need fixes
-                //thanks, Wolfram Alpha interpolate function! -- This is an alternate way of computing speed
-                //droped it because i was flaky somewhere else. Reinstate for ver. 2.0
-                // Animation for the impulse effect
-            for (int i = 0; i < numPixels(); i++)
-            {
-                if (i == Index)  // Scan Pixel to the right
-                {
-                    setPixelColor(i, Color1);
-                }
-                else if (i == TotalSteps - Index) // Scan Pixel to the left
-                {
-                    setPixelColor(i, Color1);
-                }
-                else // Fading tail
-                {
-                    setPixelColor(i, DimColor(getPixelColor(i)));
-                }
-            }
-            show();
-            Increment();
-        }
-        else
-        {
-                //if warp is on, then configure for warp effect
-            effectReset();
-            WarpChaseConfig(Color2, 10);
-        }
-        
-    }
-        //Configure Gauge parameters
-        //this is generic code for a marconi light style gauge. There is some issues right now with the DMX settings from artemis, but the code here works fine.
-    void GaugeConfig(uint32_t color)
-    {
-        if (debugMode == 1) {Serial.println("GaugeConfig() detected"); delay(2000);}
-        ActivePattern = GAUGE;
-        Color1 = color;
+      switch (State2)
+      {
+      case 25:
+        Interval = 25;
+        break;
+      case 50:
         Interval = 20;
-        Index = 0;
-        Count = 0;
-        TotalSteps = numPixels();
-        Direction = FORWARD;
+        break;
+      case 75:
+        Interval = 13;
+        break;
+      case 100:
+        Interval = 7;
+        break;
+      default:
+        break;
+      }
+
+      //Trail = (25 * State2) / 100;
+
+      if (Index + Trail > numPixels())
+      {
+        setPixelColor(Index + Trail - numPixels(), Color2);
+      }
+      setPixelColor(Index + Trail, Color2);
+      setPixelColor(Index - 1, 0, 0, 0);
+      show();
+      Increment();
     }
-        //Update Gauge effect
-    void GaugeUpdate()
+    else
     {
-        if (debugMode == 1) {Serial.println("GaugeUpdate() detected"); delay(2000);}
-        if (State == 0) { Count++; }
-        if ( Count > 4) {effectReset(); Count = 0; Index = 0; Serial.println("Reset Gauge");}
-        if (State != 0)
-        {
-            unsigned long ControlState = (State * numPixels()) / 100;
-            if (Index <= ControlState)
-            {
-                setPixelColor(Index, Color1);
-                show();
-                Index++;
-            }
-            else if (Index > ControlState)
-            {
-                setPixelColor(Index, 0,0,0);
-                show();
-                Index--;
-            }
-        }
-        
+      effectReset();
+      ImpulseConfig(Color1, 0);
     }
-        //inital attempt at this. May still need debugging. Havent decided to get rid of it or not
-        //Update Gauge effect
-    /*   void GaugeUpdate()
-     {
+  }
+
+  // Initialize for Impulse power
+  void ImpulseConfig(uint32_t color1, uint8_t interval)
+  {
+    ActivePattern = IMPULSE;
+    Interval = interval;
+    TotalSteps = (numPixels() - 1) * 2;
+    Color1 = color1;
+    Index = 0;
+  }
+
+  // Update the Impulse Pattern
+  void ImpulseUpdate()
+  {
+    if (State != 0 && State2 == 0)
+    {
+      switch (State)
+      {
+      case 1:
+        Interval = 40;
+        break;
+      case 20:
+        Interval = 35;
+        break;
+      case 40:
+        Interval = 30;
+        break;
+      case 60:
+        Interval = 20;
+        break;
+      case 80:
+        Interval = 13;
+        break;
+      case 100:
+        Interval = 7;
+        break;
+      default:
+        break;
+      }
+
+      //Interval = (1330/33)-((10*State)/33);
+       //thanks, Wolfram Alpha interpolate function! -- This is an alternate way of computing speed
+       //droped it because i was flaky somewhere else. Reinstate for ver. 2.0
+      for (int i = 0; i < numPixels(); i++)
+      {
+        if (i == Index)  // Scan Pixel to the right
+        {
+          setPixelColor(i, Color1);
+        }
+        else if (i == TotalSteps - Index) // Scan Pixel to the left
+        {
+          setPixelColor(i, Color1);
+        }
+        else // Fading tail
+        {
+          setPixelColor(i, DimColor(getPixelColor(i)));
+        }
+      }
+      show();
+      Increment();
+    }
+    else
+    {
+      effectReset();
+      WarpChaseConfig(Color2, 30);
+    }
+
+  }
+  //Configure Gauge parameters
+  void GaugeConfig(uint32_t color)
+  {
+    if (debugMode == 1) { Serial.println("GaugeConfig() detected"); delay(2000); }
+    ActivePattern = GAUGE;
+    Color1 = color;
+    Interval = 20;
+    Index = 0;
+    Count = 0;
+    TotalSteps = numPixels();
+    Direction = FORWARD;
+  }
+  //Update Gauge effect
+  void GaugeUpdate()
+  {
+    //if (debugMode == 1) { Serial.println("GaugeUpdate() detected"); delay(2000); }
+    if (State == 0) { Count++; }
+    //if (Count > 4) { effectReset(); Count = 0; Index = 0; Serial.println("Reset Gauge"); }
+    //Serial.println("TESTTESTTEST");
+    if (State != 0)
+    {
+      Count = 0;
+      unsigned long ControlState = (State * numPixels()) / 100;
+      if (Index <= ControlState)
+      {
+        setPixelColor(Index, Color1);
+        show();
+        Index++;
+      }
+      else if (Index > ControlState)
+      {
+        setPixelColor(Index, 0, 0, 0);
+        show();
+        Index--;
+      }
+    }
+
+  }
+
+  //Update Gauge effect
+/*   void GaugeUpdate()
+   {
      //if (State == 0) { Count++; }
      //if ( Count > 2) {effectReset(); Count = 0;}
      if (State != 0)
      {
-     unsigned long ControlState = (State * numPixels()) / 100;
-     Serial.println((String)"Control = " + ControlState + " -- Index = " + Index);
-     setPixelColor(Index,0,0,0);
-     if (Index <=  ControlState)
-     {
-     setPixelColor(Index,Color1);
-     Serial.println((String)"Set light #  " + Index + " to ON");
-     }
-     show();
-     Increment();
-     }
-     }
-     */
-        //Sets the configuration for initializing the shields. Creates a center point, and preps variables for upper and lower segments of the gauge
-    void ShieldsConfig(uint32_t color, uint32_t color2)
-    
+       unsigned long ControlState = (State * numPixels()) / 100;
+       Serial.println((String)"Control = " + ControlState + " -- Index = " + Index);
+       setPixelColor(Index,0,0,0);
+       if (Index <=  ControlState)
+         {
+           setPixelColor(Index,Color1);
+           Serial.println((String)"Set light #  " + Index + " to ON");
+         }
+       show();
+       Increment();
+       }
+   }
+*/
+  void ShieldsConfig(uint32_t color, uint32_t color2)
+  {
+    if (debugMode == 4) { Serial.println("ShieldsConfig() detected"); delay(2000); }
+    ActivePattern = SHIELDS;
+    Interval = 40;
+    Index = numPixels() / 2 + 1;
+    Index2 = numPixels() / 2 - 1;
+    Color1 = color;
+    Color2 = color2;
+    setPixelColor(numPixels() / 2, 0, 0, 255);
+    show();
+  }
+
+  //Update front shield gauge
+  //will need to check logic for when one is up and the other down
+  void FrontShieldUpdate()
+  {
+    if (debugMode == 4) { Serial.println("FrontShieldUpdate() detected"); delay(2000); }
+    unsigned long ControlState = numPixels() / 2 + (State * .3);
+    if (State != 0)
     {
-        if (debugMode == 4) {Serial.println("ShieldsConfig() detected"); delay(2000);}
-        ActivePattern = SHIELDS;
-        Interval = 40;
-        Index = numPixels()/2 + 1;
-        Index2 = numPixels()/2 - 1;
-        Color1 = color;
-        Color2 = color2;
-        setPixelColor(numPixels()/2, 0, 0, 255);
+      if (Index < ControlState)
+      {
+        setPixelColor(Index, Color1);
         show();
-    }
-    
-        //Update front shield gauge
-        //will need to check logic for when one is up and the other down
-        //looks at the state for upper half and lower half and updates as needed
-    void FrontShieldUpdate()
-    {
-        if (debugMode == 4) {Serial.println("FrontShieldUpdate() detected"); delay(2000);}
-        unsigned long ControlState =  numPixels()/2 + (State * .3);
-        if (State != 0)
-        {
-            if (Index < ControlState)
-            {
-                setPixelColor(Index, Color1);
-                show();
-                Index++;
-            }
-            else if (Index > ControlState)
-            {
-                setPixelColor(Index, 0,0,0);
-                show();
-                Index--;
-            }
-        }
-        else
-        {
-            if (Index > ControlState)
-            {
-                setPixelColor(Index,0,0,0);
-                show();
-                Index--;
-            }
-        }
-        setPixelColor((numPixels() / 2), 0, 0, 255);
-        
-    }
-        //update rear shield gauge
-        //will need to check logic for when one is up and the other down
-    void RearShieldUpdate()
-    {
-        if (debugMode == 4) {Serial.println("RearShieldUpdate() detected"); delay(2000);}
-        {
-            if (debugMode == 4) {Serial.println("FrontShieldUpdate() detected"); delay(2000);}
-            
-            unsigned long ControlState2 = numPixels() / 2 - (State2 * .3);
-            if (State2 != 0)
-            {
-                if (Index2 > ControlState2)
-                {
-                    setPixelColor(Index2, Color1);
-                    show();
-                    Index2--;
-                }
-                else if (Index2 < ControlState2)
-                {
-                    setPixelColor(Index2, 0,0,0);
-                    show();
-                    Index2++;
-                }
-            }
-            else
-            {
-                if (Index2 < ControlState2)
-                {
-                    setPixelColor(Index2,0,0,0);
-                    show();
-                    Index2++;
-                }
-            }
-        }
-    }
-    
-    void effectReset()
-        //clears out a light strip, but leaves the Index where it was.
-    {
-        ColorSet(Color(0,0,0));
+        Index++;
+      }
+      else if (Index > ControlState)
+      {
+        setPixelColor(Index, 0, 0, 0);
         show();
+        Index--;
+      }
     }
-    
-        // Initialize for a Fade
-        //This effect transitions between 2 colors. The "bounce" variable tells the effect to reverse at the end of a cycle and again at the beginnning
-    void EnvironmentConfig(uint32_t color1, uint32_t color2, uint16_t steps, uint8_t interval, int bounce, direction dir = FORWARD)
+    else
     {
-        if (debugMode == 5) {Serial.println("EnvironmentConfig() detected");delay(1000);}
-        ActivePattern = ENVIRONMENT;
-        Interval = interval;
-        TotalSteps = steps;
-        Color1 = color1;
-        Color2 = color2;
-        Index = 0;
-        Direction = dir;
-        Bounce = bounce;
-        
+      if (Index > ControlState)
+      {
+        setPixelColor(Index, 0, 0, 0);
+        show();
+        Index--;
+      }
     }
-    
-        // Update the Fade Pattern
-        //environment uses a series of fades, based on what event or state is coming from Artemis DMX
-    void EnvironmentUpdate()
+    setPixelColor((numPixels() / 2), 0, 0, 255);
+
+  }
+  //update rear shield gauge
+  //will need to check logic for when one is up and the other down
+  void RearShieldUpdate()
+  {
+    if (debugMode == 4) { Serial.println("RearShieldUpdate() detected"); delay(2000); }
     {
-        if (debugMode == 3) {Serial.println("EnvironmentUpdate() detected");
-            Serial.println((String)"Index = " + Index + "   State = " + State + "  State2 = " + State2); delay(1000);}
-        if (State != 0 && State != State2)
+      if (debugMode == 4) { Serial.println("FrontShieldUpdate() detected"); delay(2000); }
+
+      unsigned long ControlState2 = numPixels() / 2 - (State2 * .3);
+      if (State2 != 0)
+      {
+        if (Index2 > ControlState2)
         {
-                // Sets which color and timing config to use
-            switch (State)
-            {
-                case 1:     //Within Nebula
-                    EnvironmentConfig(Color(0,25,0), Color(50,0,150), 200, 5, 1);
-                    break;
-                case 2:     //Docking
-                    EnvironmentConfig(Color(180,180,0), Color(80,80,0), 100, 20, 1);
-                    break;
-                case 3:     //Docked
-                    EnvironmentConfig(Color(180,180,0), Color(180,180,0), 1, 100, 0);
-                    break;
-                case 4:     //Shield Hit
-                    EnvironmentConfig(Color(0,0,200), Color(0,0,100), 5, 5, 0);
-                    break;
-                case 5:     //Ship hit
-                    EnvironmentConfig(Color(255,0,0), Color(255,140,0), 5, 5, 0);
-                    break;
-                default:
-                    break;
-            }
+          setPixelColor(Index2, Color1);
+          show();
+          Index2--;
         }
-        if (State != 0)
-                //runs the effect animation
+        else if (Index2 < ControlState2)
         {
-            
-                // Calculate linear interpolation between Color1 and Color2
-                // Optimise order of operations to minimize truncation error
-            uint8_t red = ((Red(Color1) * (TotalSteps - Index)) + (Red(Color2) * Index)) / TotalSteps;
-            uint8_t green = ((Green(Color1) * (TotalSteps - Index)) + (Green(Color2) * Index)) / TotalSteps;
-            uint8_t blue = ((Blue(Color1) * (TotalSteps - Index)) + (Blue(Color2) * Index)) / TotalSteps;
-            
-            ColorSet(Color(red, green, blue));
-            show();
-                //StartIndex = Index;
-            Increment();
-            State2 = State;
+          setPixelColor(Index2, 0, 0, 0);
+          show();
+          Index2++;
         }
-        else
+      }
+      else
+      {
+        if (Index2 < ControlState2)
         {
-            effectReset();
-            Index = 0;
+          setPixelColor(Index2, 0, 0, 0);
+          show();
+          Index2++;
         }
+      }
     }
+  }
+
+  void effectReset()
+  {
+    ColorSet(Color(0, 0, 0));
+    show();
+  }
+
+  // Initialize for a Fade
+  void EnvironmentConfig(uint32_t color1, uint32_t color2, uint16_t steps, uint8_t interval, int bounce, direction dir = FORWARD)
+  {
+    if (debugMode == 5) { Serial.println("EnvironmentConfig() detected"); delay(1000); }
+    ActivePattern = ENVIRONMENT;
+    Interval = interval;
+    TotalSteps = steps;
+    Color1 = color1;
+    Color2 = color2;
+    Index = 0;
+    Direction = dir;
+    Bounce = bounce;
+
+  }
+
+  // Update the Fade Pattern
+  void EnvironmentUpdate()
+  {
+    if (debugMode == 3) {
+      Serial.println("EnvironmentUpdate() detected");
+      Serial.println((String)"Index = " + Index + "   State = " + State + "  State2 = " + State2); delay(1000);
+    }
+    if (State != 0 && State != State2)
+    {
+      switch (State)
+      {
+      case 1:     //Within Nebula
+        EnvironmentConfig(Color(0, 25, 0), Color(50, 0, 150), 200, 5, 1);
+        break;
+      case 2:     //Docking
+        EnvironmentConfig(Color(180, 180, 0), Color(80, 80, 0), 100, 20, 1);
+        break;
+      case 3:     //Docked
+        EnvironmentConfig(Color(180, 180, 0), Color(180, 180, 0), 1, 100, 0);
+        break;
+      case 4:     //Shield Hit
+        EnvironmentConfig(Color(0, 0, 200), Color(0, 0, 100), 5, 5, 0);
+        break;
+      case 5:     //Ship hit
+        EnvironmentConfig(Color(255, 0, 0), Color(255, 140, 0), 5, 5, 0);
+        break;
+      default:
+        break;
+      }
+    }
+    if (State != 0)
+    {
+
+      // Calculate linear interpolation between Color1 and Color2
+      // Optimise order of operations to minimize truncation error
+      uint8_t red = ((Red(Color1) * (TotalSteps - Index)) + (Red(Color2) * Index)) / TotalSteps;
+      uint8_t green = ((Green(Color1) * (TotalSteps - Index)) + (Green(Color2) * Index)) / TotalSteps;
+      uint8_t blue = ((Blue(Color1) * (TotalSteps - Index)) + (Blue(Color2) * Index)) / TotalSteps;
+
+      ColorSet(Color(red, green, blue));
+      show();
+      //StartIndex = Index;
+      Increment();
+      State2 = State;
+    }
+    else
+    {
+      effectReset();
+      Index = 0;
+    }
+  }
 };
 
-    // Define variables and constants
-    //instatiate the objects, including number of lights on the strip, and which pin the strip will be connected to
-NeoPatterns engines(60, 6, NEO_GRB + NEO_KHZ800);
+// Define variables and constants
+NeoPatterns engines(61, 6, NEO_GRB + NEO_KHZ800);
 NeoPatterns energy(60, 5, NEO_GRB + NEO_KHZ800);
 NeoPatterns shields(60, 4, NEO_GRB + NEO_KHZ800);
 NeoPatterns redalert(60, 2, NEO_GRB + NEO_KHZ800);
 NeoPatterns environment(60, 3, NEO_GRB + NEO_KHZ800);
 
-byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
-    //manual MAC address of the ethernet port on the Arduino.
-    //This can be completely arbitrary in my environment as this will
-    //be directly connected to the arduino from the control PC on a private network*/
-    //Address for the port
-IPAddress ip(192, 168, 100, 100);
-
+byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };    //manual MAC address of the ethernet port on the Arduino.
+  //Choose an IP Address on the same network as the device that will be outputting the ArtNET packets
+//
+IPAddress ip(10, 0, 1, 100);
 unsigned int localPort = 6454;      // local port to listen on for DMX packets
-byte packetBuffer[600]; // buffer to hold incoming packet, DMX packet is pretty much always 530 bytes
-EthernetUDP Udp; // An EthernetUDP instance to let us send and receive packets over UDP
+byte packetBuffer[600];             // buffer to hold incoming packet, DMX packet is pretty much always 530 bytes
+EthernetUDP Udp;                    // An EthernetUDP instance to let us send and receive packets over UDP
 
 
-    // Prototypes
-    // !!! Help: http://bit.ly/2l0ZhTa
+  // Prototypes
+  // !!! Help: http://bit.ly/2l0ZhTa
 
 
-    // Utilities
+  // Utilities
 
 
-    // Functions
+  // Functions
 
 
-    // Initialize everything and prepare to start
+  // Initialize everything and prepare to start
 
 void setup()
 {
-        //start ethernet session
-    Ethernet.init(10);
-    Ethernet.begin(mac, ip);
-    
-        //    start udp session
-    Udp.begin(localPort);
-    
-        //    wait for serial connection to come up -- Only needed for testing
-    Serial.begin(115200);
-    while (!Serial){
-        ;
+    //    wait for serial connection to come up -- Only needed for testing
+    Serial.begin(9600);
+    while (!Serial) {
+      ;
     }
-        // Initialize all the pixelStrips
-    engines.begin();
-    energy.begin();
-    shields.begin();
-    redalert.begin();
-    environment.begin();
-    
-        //Initial config of effect objects
-    engines.ImpulseConfig(engines.Color(200,100,0), 0);
-    engines.WarpChaseConfig(engines.Color(180,0,200), 15);
-    redalert.FadeConfig(redalert.Color(200,0,0), redalert.Color(0,0,0),150, 15, 1);
-    energy.GaugeConfig(energy.Color(10,100,10));
-    environment.EnvironmentConfig(environment.Color(0,0,0), environment.Color(0,0,0), 1, 1, 1);
-    shields.ShieldsConfig(shields.Color(0,0,150), shields.Color(0,0,150));
-    
+    //start ethernet session
+  Ethernet.init(10);
+  Ethernet.begin(mac, ip);
+
+  //    start udp session
+  Udp.begin(localPort);
+
+  // Initialize all the pixelStrips
+  engines.begin();
+  energy.begin();
+  shields.begin();
+  redalert.begin();
+  environment.begin();
+
+  //Initial config of effect objects
+  engines.ImpulseConfig(engines.Color(200, 100, 0), 0);
+  engines.WarpChaseConfig(engines.Color(180, 0, 200), 20);
+  redalert.FadeConfig(redalert.Color(200, 0, 0), redalert.Color(0, 0, 0), 150, 15, 1);
+  energy.GaugeConfig(energy.Color(10, 100, 10));
+  environment.EnvironmentConfig(environment.Color(0, 0, 0), environment.Color(0, 0, 0), 1, 1, 1);
+  shields.ShieldsConfig(shields.Color(0, 0, 150), shields.Color(0, 0, 150));
+
 }
 
-    // Main loop
+
+
+
+
+// Main loop
 void loop()
 {
-        // Check for packet in queue and read it into the buffer
-    int packetSize = Udp.parsePacket();
-    if (packetSize)
+  // Check for packet in queue and read it into the buffer
+  int packetSize = Udp.parsePacket();
+  if (packetSize)
+  {
+    Udp.read(packetBuffer, packetSize);
+    Serial.println("Packet Received");
+    Serial.println();
+
+    //main actions to take upon finding a packet
+    // Populate State variables with the received DMX values
+    engines.State = packetBuffer[18];   //Impulse Power value: 0-100
+    engines.State2 = packetBuffer[19];  //Warp Power value: 0-100
+    energy.State = packetBuffer[20];    //Energy level: 0-100
+    shields.State = packetBuffer[21];   //Front shields level: 0-100
+    shields.State2 = packetBuffer[22];  //Rear shields level: 0-100
+    redalert.State = packetBuffer[23];  //Red alert state: 0-1
+    environment.State = packetBuffer[24];   //environment state: ??
+
+    //Stabilize Energy Gauge
+
+
+    for (int i = 18; i < 30; i++)
     {
-        Udp.read(packetBuffer, packetSize);
-        Serial.println("Packet Received");
-        Serial.println();
-        
-            //main actions to take upon finding a packet
-            // Populate State variables with the received DMX values
-        engines.State = packetBuffer[18];   //Impulse Power value: 0-100
-        engines.State2 = packetBuffer[19];  //Warp Power value: 0-100
-        energy.State = packetBuffer[20];    //Energy level: 0-100
-        shields.State = packetBuffer[21];   //Front shields level: 0-100
-        shields.State2 = packetBuffer[22];  //Rear shields level: 0-100
-        redalert.State = packetBuffer[23];  //Red alert state: 0-1
-        environment.State = packetBuffer[24];   //environment state: ??
-        
-        
-            //Print the buffer values to the serial output if debugging is enabled
-        if (debugMode != 0) {
-            for (int i = 18; i < 30; i++)
-            {
-                Serial.print(packetBuffer[i], HEX);
-                Serial.print(" ");
-                Serial.println();
-                Serial.println((String)"Impulse: " + packetBuffer[18]);
-                Serial.println((String)"Warp: " + packetBuffer[19]);
-                Serial.println((String)"Energy: " + packetBuffer[20]);
-                Serial.println((String)"Front Shields: " + packetBuffer[21]);
-                Serial.println((String)"Rear Shields: " + packetBuffer[22]);
-                Serial.println((String)"Red Alert: " + packetBuffer[23]);
-                Serial.println((String)"Environment: " + packetBuffer[24]);
-            }
-            
-        }
-            //Update animation sequences for each object
-        engines.Update();
-        energy.Update();
-        shields.Update();
-        redalert.Update();
-        environment.Update();
+      Serial.print(packetBuffer[i], HEX);
+      Serial.print(" ");
     }
-    
-    
-    
-    
-    
-    
-    
+    Serial.println();
+    Serial.println((String)"Impulse: " + packetBuffer[18]);
+    Serial.println((String)"Warp: " + packetBuffer[19]);
+    Serial.println((String)"Energy: " + packetBuffer[20]);
+    Serial.println((String)"Front Shields: " + packetBuffer[21]);
+    Serial.println((String)"Rear Shields: " + packetBuffer[22]);
+    Serial.println((String)"Red Alert: " + packetBuffer[23]);
+    Serial.println((String)"Environment: " + packetBuffer[24]);
+
+
+
+  }
+  engines.Update();
+  energy.Update();
+  shields.Update();
+  redalert.Update();
+  environment.Update();
+}
 
